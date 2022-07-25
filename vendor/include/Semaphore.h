@@ -55,7 +55,7 @@ public:
     {
         std::unique_lock<std::mutex> lock(mtx);
 
-        while(c < num){
+        while((int64_t)c < (int64_t)num){
             cv.wait(lock);
         }
         c -= num;

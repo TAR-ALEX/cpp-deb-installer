@@ -28,16 +28,16 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-CC=clang++
-CC_CPP=clang++
-CC_C=clang
+CC=g++
+CC_CPP=g++
+CC_C=gcc
 
 CCFLAGS= -Wall -O3 -I"./include" -I"./vendor/include"
 
 CPP_CCFlags=$(CCFLAGS) -std=c++17
 C_CCFlags=$(CCFLAGS)
 
-LDFLAGS=-O3 -std=c++17 -lstdc++fs -lssl -lcrypto -llzma -lz -lbz2 -lboost_regex
+LDFLAGS=-O3 -std=c++17 -lstdc++fs -lssl -lcrypto -llzma -lz -lbz2 -lboost_regex -lpthread
 
 BUILD_DIR ?= ./build
 SRC_DIRS ?= ./src

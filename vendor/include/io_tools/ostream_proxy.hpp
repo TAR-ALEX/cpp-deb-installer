@@ -28,25 +28,79 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <deb-downloader.hpp>
+#pragma once
 
-using namespace std;
-namespace fs = std::filesystem;
+#ifndef ostream_proxy_hpp
+#define ostream_proxy_hpp
 
+#include <vector>
+#include <ostream>
+#include <initializer_list>
 
+namespace io_tools{
 
-int main(){
-    deb::Installer inst({
-        "deb http://packages.linuxmint.com una main upstream import backport",
-        "deb http://archive.ubuntu.com/ubuntu focal main restricted universe multiverse",
-        "deb http://archive.ubuntu.com/ubuntu focal-updates main restricted universe multiverse",
-        "deb http://archive.ubuntu.com/ubuntu focal-backports main restricted universe multiverse",
-        "deb http://security.ubuntu.com/ubuntu/ focal-security main restricted universe multiverse",
-        "deb http://archive.canonical.com/ubuntu/ focal partner",
-        "deb http://ftp.us.debian.org/debian buster main "
-    });
+	class ostream_proxy: public std::ostream {
+	private:
+		std::vector<std::ostream*> fwd = {};
+	public:
+		ostream_proxy& operator=(const ostream_proxy& other) {
+			this->fwd = other.fwd;
+			return *this;
+		}
 
-    inst.install("qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools","./qt");
-    inst.install("libboost-all-dev","./boost");
-    return 0;
-}
+		ostream_proxy() {}
+
+		ostream_proxy(std::initializer_list<std::ostream*> ostrms) {
+			for(auto & ostrm : ostrms)
+				this->forward(ostrm);
+		}
+
+		ostream_proxy(const ostream_proxy& other) {
+			this->fwd = other.fwd;
+		}
+
+		ostream_proxy(ostream_proxy&& other) {
+			this->fwd = other.fwd;
+		}
+
+		template<typename T>
+		ostream_proxy& operator<<( T s ) {
+			for ( auto ostrm : fwd ) {
+				( *ostrm ) << s;
+			}
+
+			return *this;
+		}
+		ostream_proxy& operator<< ( std::ios & ( *pf )( std::ios& ) ) {
+			for ( auto ostrm : fwd ) {
+				( *ostrm ) << pf;
+			}
+
+			return *this;
+		}
+		ostream_proxy& operator<< ( std::ios_base & ( *pf )( std::ios_base& ) ) {
+			for ( auto ostrm : fwd ) {
+				( *ostrm ) << pf;
+			}
+
+			return *this;
+		}
+		ostream_proxy& operator<< ( std::ostream & ( *pf )( std::ostream& ) ) {
+			for ( auto ostrm : fwd ) {
+				( *ostrm ) << pf;
+			}
+
+			return *this;
+		}
+		void forward( std::ostream& ostrm ) {
+			fwd.push_back( &ostrm );
+		}
+		void forward( std::ostream* ostrm ) {
+			fwd.push_back( ostrm );
+		}
+		
+	};
+
+};
+
+#endif
