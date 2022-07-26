@@ -319,6 +319,7 @@ namespace deb{
                 bxz::istream dataTarStream(dataTarCompressedStream);
                 tar::Reader dataTar(dataTarStream);
                 dataTar.throwOnUnsupported = false;
+                dataTar.linksAreCopies = false;
                 dataTar.extractAll(location);
             }catch(...){
                 deb.reset();
@@ -326,6 +327,7 @@ namespace deb{
                 bxz::istream dataTarStream(dataTarCompressedStream);
                 tar::Reader dataTar(dataTarStream);
                 dataTar.throwOnUnsupported = false;
+                dataTar.linksAreCopies = false;
                 dataTar.extractAll(location);
             }
 

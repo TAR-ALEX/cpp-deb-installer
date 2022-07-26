@@ -34,6 +34,8 @@
 #include <memory>
 #include <iostream>
 #include <map>
+#include <vector>
+#include <functional>
 #include <filesystem>
 #include <fstream>
 #include <io_tools/isubstream.hpp>
@@ -84,22 +86,71 @@ namespace tar{
 			std::string prefix;             								 	 
 											
 		};
+	}
 
-		bool StartsWith(const std::string& str, const std::string& prefix){
-			return prefix == "" || prefix == "." || str.rfind(prefix,0) == 0;
-		}
+    class Reader{
+	private:
 
-		std::string ReplacePrefix(std::string str, const std::string& from, const std::string& to) {
+		std::string replacePrefix(std::string str, const std::string& from, const std::string& to) {
 			size_t start_pos = 0;
 			if((start_pos = str.rfind(from, 0)) != std::string::npos) {
 				str.replace(start_pos, from.length(), to);
 			}
 			return str;
 		}
-	}
 
-    class Reader{
-	private:
+		std::pair<bool,std::filesystem::path> changeRoot(std::filesystem::path path, std::filesystem::path from, std::filesystem::path to){
+			path = ("."/path).lexically_normal();
+			from = ("."/from).lexically_normal();
+			to = ("."/to).lexically_normal();
+
+			if(from == "" || from == "." || from == "./"){
+				return {true, (to/path).lexically_normal()};
+			}
+			
+			bool fromIsDir = !from.has_filename();
+			bool toIsDir = !to.has_filename();
+			bool pathIsDir = !path.has_filename();
+
+			to = (to/"").lexically_normal();
+			from = (from/"").lexically_normal();
+			path = (path/"").lexically_normal();
+
+			if(path.string().rfind(from,0) != 0){
+				return {false, path};
+			}
+
+			std::filesystem::path result;
+			if(toIsDir && !fromIsDir){//from is a file && to is a dir
+				to = to.replace_filename(from.parent_path().filename());
+				to = (to/"").lexically_normal();
+			}
+
+			// case: from is a dir && to is a file
+			//     dir cannot me moved to a file, 
+			//     must also be a dir (same as two dirs)
+			// case: two dirs
+
+			// do nothing in this case
+
+			if(from == "" || from == "." || from == "./")
+				result = to/path;
+			else
+				result = replacePrefix(path, from, to);
+			
+			result = result.lexically_normal();
+
+			if(!pathIsDir) result = result.parent_path().lexically_normal();
+
+			// std::cout << fromIsDir << " " << toIsDir << " ";
+			// std::cout << " path: " << path.string();
+			// std::cout << " from: " << from.string();
+			// std::cout << " to: " << to.string();
+			// std::cout << " result: " << result.string() << "\n";
+			return {true, result};
+		}
+
+
 		posix_header unpackPosixHeader(const std::array< char, 512 > raw){
 			posix_header header;
 			header = *((posix_header*)raw.data());
@@ -136,6 +187,8 @@ namespace tar{
 			result.size = static_cast< std::size_t >(std::stol(std::string((char*)header.size, sizeof(header.size)), 0, 8));
 			result.name = std::string((char*)header.name, sizeof(header.name));
 			result.name = std::string(result.name.c_str());
+			result.linkname = std::string((char*)header.linkname, sizeof(header.linkname));
+			result.linkname = std::string(result.linkname.c_str());
 			result.typeflag = header.typeflag;
 
 			if(result.magic == "ustar"){
@@ -159,6 +212,7 @@ namespace tar{
 		std::map< std::string, std::size_t > files;
     public:
 		bool throwOnUnsupported = true;
+		bool linksAreCopies = false;
 		bool allowSeekg = false;
 
         Reader(std::string const& filename):
@@ -256,12 +310,13 @@ namespace tar{
 		}
 
         void extractPath(std::filesystem::path source, std::filesystem::path destination){
+			std::vector<std::function<void()>> toDo;
 			std::shared_ptr<void> _ (nullptr, [&](...){ 
 				inputStream.clear(); 
 				inputStream.seekg(0, std::ios::beg);
 				inputStream.clear(); 
+				for(auto& f : toDo) f();
 			});
-
 
 			files.clear();
 			static constexpr std::array< char, 512 > empty_buffer{};
@@ -279,12 +334,12 @@ namespace tar{
 					break;
 				}
 
-				parsed_posix_header header;
-				header = parsePosixHeader(buffer);
+				parsed_posix_header header = parsePosixHeader(buffer);
 
 				if(header.name == "././@LongLink"){
 					std::string longname = "";
 					longname.resize(header.size);
+
 					if(longname.length() != header.size){
 						throw std::runtime_error("Could not allocate a string of size " + std::to_string(header.size));
 					}
@@ -310,29 +365,16 @@ namespace tar{
 
 				std::streampos dataBlockOffset = (512 - (header.size % 512)) % 512;
 
-				std::filesystem::path inTarPath = header.name;
-				destination = destination.lexically_normal();
-				source = source.lexically_normal();
-				inTarPath = inTarPath.lexically_normal();
-				auto path = destination/inTarPath;
+				std::filesystem::path path;
+				bool isValid;
+				std::tie(isValid, path) = changeRoot(header.name, source, destination);
 
-				bool canSkip = false;
-				if(!StartsWith(inTarPath, source)){
-					// std::cout << "header.name = " << header.name << std::endl;
-					// std::cout << "destination = " << destination << std::endl;
-					// std::cout << "source = " << source << std::endl;
-					// std::cout << "inTarPath = " << inTarPath << std::endl;
-					// std::cout << "path = " << path << std::endl << std::endl;
-					canSkip = true;
-				}else{
-					inTarPath = ReplacePrefix(inTarPath, source, "");
-					inTarPath = inTarPath.lexically_normal();
-				}
+				// std::cout << "header.name = " << header.name << std::endl;
+				// std::cout << "source = " << source << std::endl;
+				// std::cout << "destination = " << destination << std::endl;
+				// std::cout << "path = " << path << std::endl << std::endl;
 				
-				
-				if(inTarPath.string() == "") path = destination;
-				
-				if(canSkip){
+				if(!isValid){
 					for(std::size_t i = header.size + dataBlockOffset; i > 0;){
 						int howMuchToRead = (dataBuffer.size() < i) ? (dataBuffer.size()) : (i);
 						inputStream.read(dataBuffer.data(), howMuchToRead);
@@ -345,7 +387,7 @@ namespace tar{
 						inputStream.read(dataBuffer.data(), howMuchToRead);
 						i -= howMuchToRead;
 					}
-				}else if(header.typeflag == '0'){ // is file
+				}else if(header.typeflag == '0' || header.typeflag == '\0'){ // is file
 					if(!path.has_filename()) path.replace_filename(source.filename());
 
 					
@@ -366,7 +408,47 @@ namespace tar{
 						inputStream.read(dataBuffer.data(), howMuchToRead);
 						i -= howMuchToRead;
 					}
+				}else if(header.typeflag == '2'){ // is softlink
+					std::string linkname = header.linkname;
+					toDo.emplace_back([=](){
+						try{
+							if(linksAreCopies){
+								//std::cout << "softlink " << linkname << "\ncopy " << (path.parent_path()/linkname).lexically_normal() << "\nto " << path << "\n\n";
+								std::filesystem::copy(
+									(path.parent_path()/linkname).lexically_normal(), 
+									path, 
+									std::filesystem::copy_options::overwrite_existing | 
+									std::filesystem::copy_options::recursive
+								);
+							}else{
+								std::filesystem::create_symlink(linkname, path);
+							}
+						}catch(...){}
+					});
+					
+				}else if(header.typeflag == '1'){ // is hardlink
+					std::string linkname = header.linkname;
+					toDo.emplace_back([=](){
+						try{
+							std::filesystem::path localPath = linkname;
+							bool isValid;
+							std::tie(isValid, localPath) = changeRoot(localPath, source, destination);
+
+							if(linksAreCopies){
+								//std::cout << "hardlink " << linkname << "\ncopy " << localPath << "\nto " << path << "\n\n";
+								std::filesystem::copy(
+									localPath.lexically_normal(), 
+									path, 
+									std::filesystem::copy_options::overwrite_existing | 
+									std::filesystem::copy_options::recursive
+								);
+							}else{
+								std::filesystem::create_hard_link(localPath, path);
+							}
+						}catch(...){}
+					});
 				}else{
+					std::cout << "file = " << header.name << "  <----->  type = " << (char)header.typeflag << std::endl;
 					if(throwOnUnsupported){
 						throw std::runtime_error(
 							"Tar has an unsuppoted entry type (TODO - not implemented): " + header.name
