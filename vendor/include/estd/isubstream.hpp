@@ -28,26 +28,45 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <deb-downloader.hpp>
 
-using namespace std;
-namespace fs = std::filesystem;
+#pragma once
 
+#include <estd/substreambuf.hpp>
+#include <iostream>
+#include <memory>
 
+namespace estd {
+	class isubstream : public std::istream {
+	public:
+		isubstream() : std::istream(&buffer_) {}
 
-int main() {
-	deb::Installer inst(
-		{"deb http://packages.linuxmint.com una main upstream import backport",
-		 "deb http://archive.ubuntu.com/ubuntu focal main restricted universe multiverse",
-		 "deb http://archive.ubuntu.com/ubuntu focal-updates main restricted universe multiverse",
-		 "deb http://archive.ubuntu.com/ubuntu focal-backports main restricted universe multiverse",
-		 "deb http://security.ubuntu.com/ubuntu/ focal-security main restricted universe multiverse",
-		 "deb http://archive.canonical.com/ubuntu/ focal partner",
-		 "deb http://ftp.us.debian.org/debian buster main "}
-	);
-	inst.recursive = true;
-	inst.throwOnFailedDependency = true;
-	inst.install("qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools", "./deb/qt");
-	inst.install("libboost-all-dev", "./deb/boost");
-	return 0;
-}
+		isubstream(std::streambuf* buffer, int64_t start, int64_t size) :
+			std::istream(&buffer_), buffer_(buffer, std::streampos(start), std::streamsize(size)) {}
+
+		isubstream(std::streambuf& buffer, int64_t start, int64_t size) :
+			std::istream(&buffer_), buffer_(&buffer, std::streampos(start), std::streamsize(size)) {}
+
+		isubstream(std::istream& buffer, int64_t start, int64_t size) : isubstream(buffer.rdbuf(), start, size) {}
+
+		isubstream(std::istream* buffer, int64_t start, int64_t size) : isubstream(buffer->rdbuf(), start, size) {}
+
+		isubstream(isubstream const& other) : std::istream(&buffer_), buffer_(other.buffer_) {}
+
+		isubstream(isubstream&& other) : std::istream(&buffer_), buffer_(other.buffer_) {}
+
+		isubstream& operator=(const isubstream& other) {
+			buffer_ = other.buffer_;
+			init(&buffer_);
+			return *this;
+		}
+
+		isubstream& operator=(isubstream&& other) {
+			buffer_ = other.buffer_;
+			init(&buffer_);
+			return *this;
+		}
+
+	private:
+		substreambuf buffer_;
+	};
+};// namespace estd
