@@ -30,18 +30,16 @@
 
 #pragma once
 
-#ifndef ostream_proxy_hpp
-#define ostream_proxy_hpp
-
-#include <vector>
-#include <ostream>
 #include <initializer_list>
+#include <ostream>
+#include <vector>
 
-namespace io_tools{
+namespace estd {
 
-	class ostream_proxy: public std::ostream {
+	class ostream_proxy : public std::ostream {
 	private:
 		std::vector<std::ostream*> fwd = {};
+
 	public:
 		ostream_proxy& operator=(const ostream_proxy& other) {
 			this->fwd = other.fwd;
@@ -51,56 +49,36 @@ namespace io_tools{
 		ostream_proxy() {}
 
 		ostream_proxy(std::initializer_list<std::ostream*> ostrms) {
-			for(auto & ostrm : ostrms)
-				this->forward(ostrm);
+			for (auto& ostrm : ostrms) this->forward(ostrm);
 		}
 
-		ostream_proxy(const ostream_proxy& other) {
-			this->fwd = other.fwd;
-		}
+		ostream_proxy(const ostream_proxy& other) { this->fwd = other.fwd; }
 
-		ostream_proxy(ostream_proxy&& other) {
-			this->fwd = other.fwd;
-		}
+		ostream_proxy(ostream_proxy&& other) { this->fwd = other.fwd; }
 
-		template<typename T>
-		ostream_proxy& operator<<( T s ) {
-			for ( auto ostrm : fwd ) {
-				( *ostrm ) << s;
-			}
+		template <typename T>
+		ostream_proxy& operator<<(T s) {
+			for (auto ostrm : fwd) { (*ostrm) << s; }
 
 			return *this;
 		}
-		ostream_proxy& operator<< ( std::ios & ( *pf )( std::ios& ) ) {
-			for ( auto ostrm : fwd ) {
-				( *ostrm ) << pf;
-			}
+		ostream_proxy& operator<<(std::ios& (*pf)(std::ios&)) {
+			for (auto ostrm : fwd) { (*ostrm) << pf; }
 
 			return *this;
 		}
-		ostream_proxy& operator<< ( std::ios_base & ( *pf )( std::ios_base& ) ) {
-			for ( auto ostrm : fwd ) {
-				( *ostrm ) << pf;
-			}
+		ostream_proxy& operator<<(std::ios_base& (*pf)(std::ios_base&)) {
+			for (auto ostrm : fwd) { (*ostrm) << pf; }
 
 			return *this;
 		}
-		ostream_proxy& operator<< ( std::ostream & ( *pf )( std::ostream& ) ) {
-			for ( auto ostrm : fwd ) {
-				( *ostrm ) << pf;
-			}
+		ostream_proxy& operator<<(std::ostream& (*pf)(std::ostream&)) {
+			for (auto ostrm : fwd) { (*ostrm) << pf; }
 
 			return *this;
 		}
-		void forward( std::ostream& ostrm ) {
-			fwd.push_back( &ostrm );
-		}
-		void forward( std::ostream* ostrm ) {
-			fwd.push_back( ostrm );
-		}
-		
+		void forward(std::ostream& ostrm) { fwd.push_back(&ostrm); }
+		void forward(std::ostream* ostrm) { fwd.push_back(ostrm); }
 	};
 
-};
-
-#endif
+};// namespace estd

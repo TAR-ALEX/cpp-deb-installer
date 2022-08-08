@@ -218,9 +218,7 @@ namespace tar {
 				std::filesystem::path tmp = "";
 				std::tie(tmp, right) = splitPathPrefix(right);
 				left /= tmp;
-				if (softLinks.count(left)) 
-					left = (left.parent_path() / softLinks[left]).lexically_normal();
-				
+				if (softLinks.count(left)) left = (left.parent_path() / softLinks[left]).lexically_normal();
 			}
 			return left.lexically_normal();
 		}
@@ -355,8 +353,8 @@ namespace tar {
 				std::filesystem::path rootLinkedPath = (sourcePath.parent_path() / linkedPath).lexically_normal();
 				if (!extractSoftLinksAsCopies) {
 					auto [isValid, _] = changeRoot(rootLinkedPath, source, destination);
-					if(isValid){
-						try{
+					if (isValid) {
+						try {
 							std::filesystem::create_symlink(linkedPath, extractPath);
 						} catch (...) {}
 						continue;
@@ -373,7 +371,13 @@ namespace tar {
 
 				bool storeState = followSoftlinks;
 				followSoftlinks = true;
-				estd::isubstream sourceFile = open(linkedPath);
+				estd::isubstream sourceFile;
+				try {
+					sourceFile = open(linkedPath);
+				} catch (...) {
+					if (throwOnBrokenSoftlinks)
+						throw std::runtime_error("Link " + sourcePath.string() + " is broken in the archive");
+				}
 				followSoftlinks = storeState;
 
 				std::ofstream destinationFile = std::ofstream(extractPath, std::ios::out | std::ios::binary);
@@ -399,11 +403,14 @@ namespace tar {
 					std::filesystem::path linksTo = softLinks[inTarPath];
 					linksTo = (inTarPath.parent_path() / linksTo).lexically_normal();
 					if (!linksTo.has_filename() || linksTo.filename() == ".") {// it is a dir
+						if (throwOnBrokenSoftlinks && !paths.count(linksTo))
+							throw std::runtime_error("Detected broken softlink " + inTarPath.string());
+
 						std::filesystem::create_directories(extractPath);
 						if (visited.count(inTarPath.lexically_normal())) {
 							if (throwOnInfiniteRecursion)
 								throw std::runtime_error(
-									"infinite recursion detected in symlink " + inTarPath.string()
+									"Infinite recursion detected in symlink " + inTarPath.string()
 								);
 						} else {
 							visited.insert(inTarPath.lexically_normal());
@@ -415,7 +422,12 @@ namespace tar {
 				if (inTarPath.has_filename()) {
 					bool storeState = followSoftlinks;
 					followSoftlinks = true;
-					sourceFile = open(inTarPath);
+					try {
+						sourceFile = open(inTarPath);
+					} catch (...) {
+						if (throwOnBrokenSoftlinks)
+							throw std::runtime_error("Link " + inTarPath.string() + " is broken in the archive");
+					}
 					followSoftlinks = storeState;
 
 					std::ofstream destinationFile = std::ofstream(extractPath, std::ios::out | std::ios::binary);
@@ -438,6 +450,7 @@ namespace tar {
 		bool throwOnInfiniteRecursion = false;
 		bool extractHardLinksAsCopies = false;
 		bool extractSoftLinksAsCopies = false;
+		bool throwOnBrokenSoftlinks = false;
 		bool followSoftlinks = true;
 
 		Reader(std::string const& filename) :

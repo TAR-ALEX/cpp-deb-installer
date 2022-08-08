@@ -36,10 +36,10 @@
 #include <ar/ar.hpp>
 #include <boost/regex.hpp>
 #include <bxzstr.hpp>
+#include <estd/ostream_proxy.hpp>
 #include <filesystem>
 #include <fstream>
 #include <httplib.h>
-#include <io_tools/ostream_proxy.hpp>
 #include <iostream>
 #include <map>
 #include <set>
@@ -169,11 +169,12 @@ namespace deb {
 
 	class Installer {
 	public:
-		io_tools::ostream_proxy cout{{&std::cout}};
-		vector<string> sourcesList;
-		map<string, string> packageToUrl;
-		set<string> installed;
-		mutex installLock;
+		estd::ostream_proxy cout{{&std::cout}};
+		std::vector<std::string> sourcesList;
+		std::map<std::string, std::string> packageToUrl;
+		std::set<string> installed;
+		std::set<string> preInstalled;
+		std::mutex installLock;
 		ThreadPool trm{16};
 
 		vector<tuple<string, string>> getListUrls() {
@@ -284,66 +285,67 @@ namespace deb {
 			}
 			return result;
 		}
-		void installPrivate(string package, string location) {
+		void installPrivate(
+			string package, std::set<std::pair<std::string, std::string>> locations, int recursionDepth
+		) {
 			string url;
 			vector<std::thread> threads;
 			{
 				unique_lock<mutex> lock(installLock);
 
-				if (!packageToUrl.count(package))
-					throw runtime_error("package " + package + " does not exist in repository.");
+				if (!packageToUrl.count(package)) {
+					if (throwOnFailedDependency)
+						throw runtime_error("package " + package + " does not exist in repository.");
+					return;
+				}
 				url = packageToUrl[package];
 
 				if (installed.count(url)) {
-					cout << "already installed " << package << endl;
+					cout << "already installed " + package + "\n";
 					return;
 				}
 
 				installed.insert(url);
-				cout << "installed " << package << "\n";
+				cerr << "installed " + package + "\n";
 			}
 
-			auto packageLoc = downloadFile(url, "./tmp");
+			auto packageLoc = downloadFile(url, tmpDirectory);
 			ar::Reader deb(packageLoc.string());
 
 			auto versionStream = deb.open("debian-binary");
 			string version = streamToString(versionStream);
 			if (version.find("2.0") == string::npos)
 				throw runtime_error("package " + package + " has a bad version number " + version + ".");
-				
+
 			string controlString;
 
 			estd::isubstream dataTarCompressedStream;
-			for (auto path : {"data.tar.xz", "data.tar.gz"}) {
-				std::cout << "trying: "<<path<<"\n";
+			for (auto path : {"data.tar.xz", "data.tar.gz", "data.tar"}) {
 				try {
 					dataTarCompressedStream = deb.open(path);
 					break;
-				} catch (runtime_error& e) { std::cout << e.what() << "\n"; } catch (...) {
-				}
+				} catch (...) {}
 			}
 
 			bxz::istream dataTarStream(dataTarCompressedStream);
 			tar::Reader dataTar(dataTarStream);
-			dataTar.throwOnUnsupported = true;
-			dataTar.extractHardLinksAsCopies = false;
-			dataTar.extractSoftLinksAsCopies = false;
+			dataTar.throwOnUnsupported = false;
+			dataTar.extractHardLinksAsCopies = extractHardLinksAsCopies;
+			dataTar.extractSoftLinksAsCopies = extractSoftLinksAsCopies;
 			dataTar.throwOnInfiniteRecursion = false;
+			dataTar.throwOnBrokenSoftlinks = false;
 
-			dataTar.extractAll(location);
+			for (auto [source, destination] : locations) { dataTar.extractPath(source, destination); }
 
-			if (!recursive) return;
-			std::cout << "recursion\n";
+
+			if (recursionDepth <= 1) return;
 
 			estd::isubstream controlTarCompressedStream;
-			for (auto path : {"control.tar.xz", "control.tar.gz"}) {
-				std::cout << "trying: "<<path<<"\n";
+			for (auto path : {"control.tar.xz", "control.tar.gz", "control.tar"}) {
 				try {
 					controlTarCompressedStream = deb.open(path);
-					std::cout << "opened file!\n";
 					break;
-				} catch (runtime_error& e) { std::cout << e.what() << "\n"; } catch (...) {
-				}
+				} catch (...) {}
 			}
 
 			bxz::istream controlTarStream(controlTarCompressedStream);
@@ -355,24 +357,68 @@ namespace deb {
 			auto deps = getFields(controlString);
 
 			for (auto dep : deps) {
-				trm.schedule([this, dep, location]() { this->installPrivate(dep, location); });
+				trm.schedule([this, dep, locations, recursionDepth]() {
+					this->installPrivate(dep, locations, recursionDepth - 1);
+				});
+			}
+		}
+
+		//https://stackoverflow.com/a/440240
+		std::string gen_random(const int len) {
+			static const char alphanum[] = "0123456789"
+										   "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+										   "abcdefghijklmnopqrstuvwxyz";
+			std::string tmp_s;
+			tmp_s.reserve(len);
+
+			for (int i = 0; i < len; ++i) { tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)]; }
+
+			return tmp_s;
+		}
+
+		std::string generateUniqueTempDir() {
+			while (true) {
+				std::filesystem::path name = "." + gen_random(10);
+				if (!std::filesystem::exists(name)) {
+					std::filesystem::create_directories(name);
+					return name.string();
+				}
 			}
 		}
 
 	public:
-		string architecture = "binary-amd64";
-		bool recursive = true;
-		bool throwOnFailedDependency = false;
+		std::string architecture = "binary-amd64";
+		std::string tmpDirectory = "";
+		int recursionLimit = 9999;
+		bool throwOnFailedDependency = true;
+		bool extractHardLinksAsCopies = true;
+		bool extractSoftLinksAsCopies = true;
 
-		Installer(vector<string> l) : sourcesList(l) {}
-		void install(string package, string location) {
+		Installer(vector<string> l) : sourcesList(l) {
+			if (tmpDirectory == "") tmpDirectory = generateUniqueTempDir();
+		}
+
+		~Installer() { std::filesystem::remove_all(tmpDirectory); }
+
+		void markInstalled(std::set<std::string> pkgs) {
 			if (packageToUrl.empty()) getPackageList();
-			vector<string> packagesInstalled;
+
+			for (auto pkg : pkgs) preInstalled.insert(pkg);
+			//TODO: mark dependencies as installed as well
+		}
+
+		void install(string package, string location) { install(package, {{"./", location}}); }
+
+		void install(std::string package, std::set<std::pair<std::string, std::string>> locations) {
+			if (packageToUrl.empty()) getPackageList();
+			
+			installed.insert(preInstalled.begin(), preInstalled.end());
+
 			auto pkgs = split(package, "\\s+");
 			for (auto pkg : pkgs) {
-				trm.schedule([this, pkg, location]() { installPrivate(pkg, location); });
+				trm.schedule([this, pkg, locations]() { installPrivate(pkg, locations, recursionLimit); });
 			}
-			trm.forwardExceptions = throwOnFailedDependency;
+			trm.forwardExceptions = true;
 			trm.wait();
 		}
 	};

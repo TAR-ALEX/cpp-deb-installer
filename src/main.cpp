@@ -45,9 +45,17 @@ int main() {
 		 "deb http://archive.canonical.com/ubuntu/ focal partner",
 		 "deb http://ftp.us.debian.org/debian buster main "}
 	);
-	inst.recursive = true;
+	inst.recursionLimit = 3;
 	inst.throwOnFailedDependency = true;
-	inst.install("qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools", "./deb/qt");
-	inst.install("libboost-all-dev", "./deb/boost");
+	inst.install("qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools", "../deb/qt");
+	//inst.install("libboost-all-dev", "../deb/boost");
+	inst.install(
+		"libboost-all-dev",
+		{
+			{"./usr/lib/x86_64-linux-gnu", "../deb/boost-lib"},
+			{"./usr/include", "../deb/boost-include"},
+		}
+	);
+
 	return 0;
 }

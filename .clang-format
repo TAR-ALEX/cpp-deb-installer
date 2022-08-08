@@ -32,6 +32,6 @@ PenaltyReturnTypeOnItsOwnLine: '999999'
 IndentCaseLabels: 'true'
 IndentPPDirectives: 'BeforeHash'
 ColumnLimit: 120
-AlignArrayOfStructures: 'Left'
+# AlignArrayOfStructures: 'Left'
 InsertTrailingCommas: 'Wrapped'
 # IndentPragmas: 'AfterHash'

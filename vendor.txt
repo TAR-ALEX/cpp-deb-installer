@@ -5,6 +5,6 @@ git "https://github.com/tmaklin/bxzstr.git" master "./include" "./vendor/include
 
 git "https://github.com/TAR-ALEX/Tar-Cpp" master "./include" "./vendor/include",
 git "https://github.com/TAR-ALEX/substreams_cpp" master "./include" "./vendor/include",
-git "https://github.com/TAR-ALEX/io_tools.git" master "./include" "./vendor/include",
+git "https://github.com/TAR-ALEX/estd_logging.git" master "./include" "./vendor/include",
 git "https://github.com/TAR-ALEX/Ar-Cpp.git" master "./include" "./vendor/include",
 git "https://github.com/TAR-ALEX/ThreadPool.git" main "./include" "./vendor/include",
