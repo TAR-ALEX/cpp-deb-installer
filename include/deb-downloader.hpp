@@ -400,11 +400,22 @@ namespace deb {
 
 		~Installer() { std::filesystem::remove_all(tmpDirectory); }
 
-		void markInstalled(std::set<std::string> pkgs) {
+		void markPreInstalled(std::set<std::string> pkgs) {
 			if (packageToUrl.empty()) getPackageList();
 
 			for (auto pkg : pkgs) preInstalled.insert(pkg);
 			//TODO: mark dependencies as installed as well
+		}
+
+		void markInstalled(std::set<std::string> pkgs) {
+			if (packageToUrl.empty()) getPackageList();
+
+			for (auto pkg : pkgs) installed.insert(pkg);
+			//TODO: mark dependencies as installed as well
+		}
+
+		void clearInstalled(){
+			installed.clear();
 		}
 
 		void install(string package, string location) { install(package, {{"./", location}}); }
