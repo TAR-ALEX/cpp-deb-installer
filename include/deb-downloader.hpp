@@ -394,11 +394,15 @@ namespace deb {
 		bool extractHardLinksAsCopies = true;
 		bool extractSoftLinksAsCopies = true;
 
-		Installer(vector<string> l) : sourcesList(l) {
-			if (tmpDirectory == "") tmpDirectory = generateUniqueTempDir();
-		}
+		Installer() {}
+
+		Installer(vector<string> l, string tmp = "") : sourcesList(l) { tmpDirectory = tmp + generateUniqueTempDir(); }
 
 		~Installer() { std::filesystem::remove_all(tmpDirectory); }
+
+		void setSources(vector<string> l){
+			sourcesList = l;
+		}
 
 		void markPreInstalled(std::set<std::string> pkgs) {
 			if (packageToUrl.empty()) getPackageList();
@@ -414,15 +418,13 @@ namespace deb {
 			//TODO: mark dependencies as installed as well
 		}
 
-		void clearInstalled(){
-			installed.clear();
-		}
+		void clearInstalled() { installed.clear(); }
 
 		void install(string package, string location) { install(package, {{"./", location}}); }
 
 		void install(std::string package, std::set<std::pair<std::string, std::string>> locations) {
 			if (packageToUrl.empty()) getPackageList();
-			
+
 			installed.insert(preInstalled.begin(), preInstalled.end());
 
 			auto pkgs = split(package, "\\s+");
