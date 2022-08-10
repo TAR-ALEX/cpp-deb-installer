@@ -306,7 +306,7 @@ namespace deb {
 				}
 
 				installed.insert(url);
-				cerr << "installed " + package + "\n";
+				cout << "installed " + package + "\n";
 			}
 
 			auto packageLoc = downloadFile(url, tmpDirectory);
