@@ -169,7 +169,7 @@ namespace deb {
 
 	class Installer {
 	public:
-		estd::ostream_proxy cout{{&std::cout}};
+		estd::ostream_proxy cout;
 		std::vector<std::string> sourcesList;
 		std::map<std::string, std::string> packageToUrl;
 		std::set<string> installed;
