@@ -31,8 +31,8 @@
 #pragma once
 
 #define CPPHTTPLIB_OPENSSL_SUPPORT
-#include <Semaphore.h>
-#include <ThreadPool.hpp>
+#include <estd/semaphore.h>
+#include <estd/thread_pool.hpp>
 #include <ar/ar.hpp>
 #include <boost/regex.hpp>
 #include <bxzstr.hpp>
@@ -175,7 +175,7 @@ namespace deb {
 		std::set<string> installed;
 		std::set<string> preInstalled;
 		std::mutex installLock;
-		ThreadPool trm{16};
+		estd::thread_pool trm{16};
 
 		vector<tuple<string, string>> getListUrls() {
 			vector<tuple<string, string>> result;
