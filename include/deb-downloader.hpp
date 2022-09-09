@@ -396,12 +396,13 @@ namespace deb {
 
 		Installer() {}
 
-		Installer(vector<string> l, string tmp = "") : sourcesList(l) { tmpDirectory = tmp + generateUniqueTempDir(); }
+		Installer(vector<string> l, std::filesystem::path tmp = "") : sourcesList(l) { tmpDirectory = tmp / generateUniqueTempDir(); }
 
 		~Installer() { std::filesystem::remove_all(tmpDirectory); }
 
 		void setSources(vector<string> l){
 			sourcesList = l;
+            packageToUrl = {};
 		}
 
 		void markPreInstalled(std::set<std::string> pkgs) {

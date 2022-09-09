@@ -8,3 +8,5 @@ git "https://github.com/TAR-ALEX/substreams_cpp" master "./include" "./vendor/in
 git "https://github.com/TAR-ALEX/estd_logging.git" master "./include" "./vendor/include",
 git "https://github.com/TAR-ALEX/Ar-Cpp.git" master "./include" "./vendor/include",
 git "https://github.com/TAR-ALEX/ThreadPool.git" main "./include" "./vendor/include",
+
+git "https://github.com/boostorg/regex.git" master "./include" "./vendor/include",
