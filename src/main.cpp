@@ -37,12 +37,12 @@ namespace fs = std::filesystem;
 
 int main() {
 	deb::Installer inst(
-		{"deb http://packages.linuxmint.com una main upstream import backport",
-		 "deb http://archive.ubuntu.com/ubuntu focal main restricted universe multiverse",
-		 "deb http://archive.ubuntu.com/ubuntu focal-updates main restricted universe multiverse",
-		 "deb http://archive.ubuntu.com/ubuntu focal-backports main restricted universe multiverse",
-		 "deb http://security.ubuntu.com/ubuntu/ focal-security main restricted universe multiverse",
-		 "deb http://archive.canonical.com/ubuntu/ focal partner",
+		{"deb http://packages.linuxmint.com vera main upstream import backport",
+		 "deb http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse",
+		 "deb http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse",
+		 "deb http://archive.ubuntu.com/ubuntu jammy-backports main restricted universe multiverse",
+		 "deb http://security.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse",
+		 "deb http://archive.canonical.com/ubuntu/ jammy partner",
 		 "deb http://ftp.us.debian.org/debian buster main "}
 	);
 	inst.recursionLimit = 3;

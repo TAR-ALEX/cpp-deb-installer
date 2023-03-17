@@ -37,7 +37,7 @@ CCFLAGS= -Wall -O3 -I"./include" -I"./vendor/include"
 CPP_CCFlags=$(CCFLAGS) -std=c++17
 C_CCFlags=$(CCFLAGS)
 
-LDFLAGS=-O3 -std=c++17 -lstdc++fs -lssl -lcrypto -llzma -lz -lbz2 -lpthread
+LDFLAGS=-O3 -std=c++17 -lstdc++fs -lssl -lcrypto -llzma -lz -lbz2 -lzstd -lpthread
 
 BUILD_DIR ?= ./build
 SRC_DIRS ?= ./src
